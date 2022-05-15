@@ -1,6 +1,6 @@
 # BMW My Garage scraper
 
-The script fetches the production status of your BMW from My Garage.
+The script fetches the production status of your BMW vehicle from My Garage.
 
 ## Setup
 

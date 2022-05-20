@@ -20,4 +20,4 @@ Change the _USERNAME_ and _PASSWORD_ inside _bmw.py_ to that of your own. If you
 ```python3 bmw.py```
 
 ## Troubleshooting
-If you are getting timeout exceptions, try increasing the _TIMEOUT_ value.
+If you are getting timeout exceptions, try increasing the _TIMEOUT_ value. Sometimes, My Garage itself is down, so you will still get this exception.

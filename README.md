@@ -7,7 +7,8 @@ The script fetches the production status of your BMW vehicle from My Garage.
 ### Prerequisites
 - Python3
 - pip3
-- Chrome
+- Chromium
+- ChromeDriver compatible with the Chromium version installed
 - Python packages inside requirements.txt
 
 ### Install

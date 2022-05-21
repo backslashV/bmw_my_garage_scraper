@@ -8,6 +8,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
 import os
+import telegram_send
 
 # supress web driver manager logs
 os.environ['WDM_LOG'] = '0'
@@ -41,34 +42,58 @@ def main():
     try:
         driver.get(MY_GARAGE_URL)
     except Exception as ex:
-        exit(ex)
+        cleanUpAndExit(str(x))
 
     # wait for the login screen to fully load
     implicitWaitForPageLoad(By.CSS_SELECTOR, LOGIN_BUTTON_CLASS_NAME)
-    
     # log in
-    performLogin(CREDENTIALS_TAG, LOGIN_BUTTON_CLASS_NAME, USERNAME, PASSWORD)
-
+    performLogin(USERNAME, PASSWORD)
     # wait for my garage to fully load
     implicitWaitForPageLoad(By.CLASS_NAME, VEHICLE_VIN_CLASS_NAME)
-
+    # save the previous status
+    prevStatus = getPreviousStatus()
     # fetch the production status
-    productionStatus = getProductionStatus(BeautifulSoup(driver.page_source, 'html.parser'),
-            VEHICLE_PRODUCTION_STATUS_TAG, VEHICLE_PRODUCTION_STATUS_CLASS_NAME)
+    productionStatus = getProductionStatus(BeautifulSoup(driver.page_source, 'html.parser'))
+    # write production status to file
+    writeProductionStatusToFile(productionStatus)
+    # send updates via telegram
+    sendStatusViaTelegram(prevStatus, productionStatus)
+    print(productionStatus)
+    cleanUpAndExit()
 
-    print(productionStatus.text.split(":  ", 1)[1])
+def getStatusFileName():
+    return os.path.dirname(os.path.realpath(__file__)) + "\status.txt"
 
-def getProductionStatus(html, production_status_tag, production_status_class_name):
-    return html.find_all(production_status_tag, {"class": production_status_class_name})[0]
+def getPreviousStatus():
+    fileName = getStatusFileName()
+    if not os.path.exists(fileName):
+        return ""
+    with open(fileName, "r") as file:
+        return file.read()
 
-def performLogin(input_tag, login_button_class, username, password):
+def writeProductionStatusToFile(status):
+    with open(getStatusFileName(), "w") as file:
+        file.write(status)
+
+def sendStatusViaTelegram(prevStatus, newStatus):
+    # only send updates if the new status is different
+    if prevStatus != newStatus:
+        message = prevStatus + "->" + newStatus
+        telegram_send.send(messages=["`" + message + "`"], parse_mode="markdown")
+
+def getProductionStatus(html):
+    statusWithExtras = html.find_all(VEHICLE_PRODUCTION_STATUS_TAG,
+            {"class": VEHICLE_PRODUCTION_STATUS_CLASS_NAME})[0]
+    return statusWithExtras.text.split(":  ", 1)[1]
+
+def performLogin(username, password):
     # find the username and password fields
-    inputTags = driver.find_elements(By.TAG_NAME, input_tag)
+    inputTags = driver.find_elements(By.TAG_NAME, CREDENTIALS_TAG)
     if len(inputTags) < NUM_INPUT_TAGS:
-        exit("Not all input tags were found. Quitting...")
+        cleanUpAndExit("Not all input tags were found. Quitting...")
     usernameField = inputTags[0]
     passwordField = inputTags[1]
-    loginButton = driver.find_elements(By.CSS_SELECTOR, login_button_class)[0]
+    loginButton = driver.find_elements(By.CSS_SELECTOR, LOGIN_BUTTON_CLASS_NAME)[0]
 
     usernameField.send_keys(username)
     passwordField.send_keys(password)
@@ -79,7 +104,11 @@ def implicitWaitForPageLoad(locator, locatorValue):
         WebDriverWait(driver, TIMEOUT).until(EC.visibility_of_any_elements_located((locator,
                 locatorValue)))
     except:
-        exit("implicitWaitForPageLoad timed out - locatorValue: " + locatorValue)
+        cleanUpAndExit("implicitWaitForPageLoad timed out - locatorValue: " + locatorValue)
+
+def cleanUpAndExit(message = ""):
+    driver.quit()
+    exit(message)
 
 if __name__ == "__main__":
   main()
